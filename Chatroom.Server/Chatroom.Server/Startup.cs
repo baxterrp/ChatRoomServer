@@ -1,16 +1,12 @@
+using Chatroom.Server.EntityContext;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.HttpsPolicy;
-using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace Chatroom.Server
 {
@@ -26,12 +22,36 @@ namespace Chatroom.Server
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
+            var connectionString = Configuration.GetConnectionString("Default");
+            
+            services.AddEntityFrameworkSqlServer();
+
+            services.AddDbContext<MessengerDbContext>(options =>
+            {
+                options.UseSqlServer(connectionString);
+            });
+
+            services.AddDbContext<MessengerUserDbContext>(options =>
+            {
+                options.UseSqlServer(connectionString);
+            });
+
+            services.AddIdentity<MessengerUser, IdentityRole>()
+                .AddEntityFrameworkStores<MessengerUserDbContext>()
+                .AddDefaultTokenProviders();
 
             services.AddControllers();
             services.AddSwaggerGen(c =>
             {
                 c.SwaggerDoc("v1", new OpenApiInfo { Title = "Chatroom.Server", Version = "v1" });
             });
+
+            services.AddCors(sp => sp.AddPolicy("StandardPolicy", builder =>
+            {
+                builder
+                    .AllowAnyOrigin()
+                    .AllowAnyHeader();
+            }));
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -47,7 +67,9 @@ namespace Chatroom.Server
             app.UseHttpsRedirection();
 
             app.UseRouting();
+            app.UseCors("StandardPolicy");
 
+            app.UseAuthentication();
             app.UseAuthorization();
 
             app.UseEndpoints(endpoints =>
